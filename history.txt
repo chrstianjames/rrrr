@@ -26,7 +26,8 @@
             "id": "68b5e2417cdb6",
             "senderId": "7",
             "timestamp": 1756750401511,
-            "content": "fdddd"
+            "content": "fdddd",
+            "seen": 1756750529000
         }
     ]
 }
