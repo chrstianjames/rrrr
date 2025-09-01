@@ -1,0 +1,65 @@
+name: Upload Chat History
+
+on:
+  repository_dispatch:
+    types: [upload-chat-history]
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Create history file
+        run: echo "${{ github.event.client_payload.history }}" > history.txt
+
+      - name: Get current release
+        id: get_release
+        run: |
+          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.id')
+          echo "::set-output name=release_id::$RELEASE_ID"
+
+      - name: Upload new history.txt
+        id: upload-asset
+        uses: actions/upload-artifact@v3
+        with:
+          name: chat-history
+          path: history.txt
+
+      - name: Create or Update Release
+        if: steps.get_release.outputs.release_id == "null"
+        run: |
+          # Create a new release if one doesn't exist
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d '{"tag_name": "latest", "name": "Latest Chat History", "body": "Latest chat history file."}' \
+            "https://api.github.com/repos/${{ github.repository }}/releases"
+            
+      - name: Update existing release asset
+        if: steps.get_release.outputs.release_id != "null"
+        run: |
+          # Delete old history.txt asset
+          ASSET_ID=$(curl -s -H "Authorization: token ${{ secrets.secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.get_release.outputs.release_id }}/assets" | jq -r '.[] | select(.name=="history.txt") | .id')
+          
+          if [ "$ASSET_ID" != "" ]; then
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$ASSET_ID"
+          fi
+          
+          # Upload new history.txt
+          curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@history.txt" \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.get_release.outputs.release_id }}/assets?name=history.txt"
